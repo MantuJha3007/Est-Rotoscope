@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAM 2 Unlimited Rotoscoping Studio</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- Top Header -->
+    <header>
+        <div class="logo-area">
+            <span class="logo-tag">SAM 2.1</span>
+            <span class="logo-title">Rotoscoping Studio</span>
+        </div>
+        <div class="header-badges">
+            <div class="badge badge-gpu" id="gpuBadge">
+                <span class="badge-gpu-dot"></span> NVIDIA RTX 4060 • Unlimited
+            </div>
+            <select id="modelSelect" style="background:#1a1c23; color:#e6edf3; border:1px solid #2e3240; padding:0.3rem 0.6rem; border-radius:6px; font-size:0.8rem;">
+                <option value="large" selected>LARGE (~900MB) - Max Precision for Fine Details</option>
+                <option value="base_plus">BASE+ (Recommended)</option>
+                <option value="small">SMALL</option>
+                <option value="tiny">TINY (Fastest)</option>
+            </select>
+        </div>
+    </header>
+
+    <!-- App Container -->
+    <div class="app-container">
+        <!-- Left Sidebar -->
+        <aside class="sidebar">
+            <!-- 1. Video Source Card -->
+            <div class="card">
+                <span class="card-title">1. Source Video</span>
+                <select id="videoSelect" style="background:#121316; color:#e6edf3; border:1px solid #2e3240; padding:0.45rem; border-radius:6px; font-size:0.85rem;">
+                    <option value="">-- Choose Video from inputs/ --</option>
+                </select>
+                <div style="display:flex; gap:0.5rem;">
+                    <label class="btn" style="flex:1; cursor:pointer;" title="Upload video through browser">
+                        📁 Upload Video
+                        <input type="file" id="fileUpload" accept="video/mp4,video/quicktime,video/x-matroska,video/avi" style="display:none;">
+                    </label>
+                    <button class="btn" id="btnOpenFolder" title="Open inputs folder on your PC to drop large videos directly">📂 Open Folder</button>
+                    <button class="btn btn-primary" id="btnLoadVideo">Load</button>
+                </div>
+                <div id="uploadProgressBox" style="display:none; flex-direction:column; gap:0.25rem;">
+                    <div style="background:#0d0e12; border-radius:3px; height:5px; overflow:hidden;">
+                        <div id="uploadProgressBar" style="width:0%; height:100%; background:#0084ff; transition:width 0.1s;"></div>
+                    </div>
+                    <span id="uploadStatus" style="font-size:0.75rem; color:#58a6ff;"></span>
+                </div>
+            </div>
+
+            <!-- 2. Video Metadata Card -->
+            <div class="card">
+                <span class="card-title">Clip Details</span>
+                <div class="info-row"><span class="info-label">File:</span><span class="info-value" id="videoName">-</span></div>
+                <div class="info-row"><span class="info-label">Resolution:</span><span class="info-value" id="videoRes">-</span></div>
+                <div class="info-row"><span class="info-label">Frames:</span><span class="info-value" id="videoFrames">-</span></div>
+                <div class="info-row"><span class="info-label">Duration:</span><span class="info-value" id="videoDuration">-</span></div>
+                <div class="info-row"><span class="info-label">Framerate:</span><span class="info-value" id="videoFps">-</span></div>
+            </div>
+
+            <!-- 3. Tool Mode Card -->
+            <div class="card">
+                <span class="card-title">2. Prompt Tools</span>
+                <div class="mode-toggle">
+                    <button class="mode-btn active-positive" id="btnModePositive">🟢 Include (+)</button>
+                    <button class="mode-btn" id="btnModeNegative">🔴 Exclude (-)</button>
+                </div>
+                <p style="font-size:0.75rem; color:#8b949e; line-height:1.4;">
+                    • <b>Left-Click:</b> Add prompt point.<br>
+                    • <b>Right-Click:</b> Instant exclude point.<br>
+                    • Scrub timeline to add correction points on keyframes.
+                </p>
+                <button class="btn btn-danger" id="btnClearFrame" style="font-size:0.8rem; padding:0.4rem;">Clear Current Frame</button>
+            </div>
+
+            <!-- 4. Quick Help -->
+            <div class="card" style="margin-top:auto;">
+                <span class="card-title">DaVinci Resolve Tips</span>
+                <p style="font-size:0.75rem; color:#8b949e; line-height:1.4;">
+                    • <b>⭐ Transparent .mov:</b> Native 1-click transparency in DaVinci. Drop directly on Track 2 — background is 100% transparent with zero setup!<br>
+                    • <b>🎞️ Side-by-Side .mp4:</b> Color left + Matte right in one MP4. In Color/Fusion page, pipe right half as alpha.<br>
+                    • <b>⬛ B&W Matte .mp4:</b> In <i>Color Page</i>, right-click node graph ➔ <i>Add Source ➔ External Matte</i> and link blue dot to alpha input.
+                </p>
+            </div>
+        </aside>
+
+        <!-- Viewport Area -->
+        <main class="viewport-area">
+            <div class="canvas-container">
+                <canvas id="editorCanvas"></canvas>
+            </div>
+
+            <!-- Bottom Timeline Controls -->
+            <div class="timeline-bar">
+                <div class="timeline-scrub-row">
+                    <div class="timecode-display" id="timecodeDisplay">00:00:00:00</div>
+                    <input type="range" class="scrubber" id="scrubber" min="0" max="0" value="0">
+                    <span id="frameCounter" style="font-size:0.8rem; color:#8b949e; min-width:110px;">Frame 0 / 0</span>
+                </div>
+
+                <div class="transport-controls">
+                    <div class="transport-group">
+                        <button class="btn" id="btnFirst" title="First Frame">|&lt;</button>
+                        <button class="btn" id="btnPrev10" title="Back 10 Frames">-10</button>
+                        <button class="btn" id="btnPrev" title="Previous Frame (Left Arrow)">&lt;</button>
+                        <button class="btn btn-primary" id="btnPlay" style="min-width:85px;">▶ Play</button>
+                        <button class="btn" id="btnNext" title="Next Frame (Right Arrow)">&gt;</button>
+                        <button class="btn" id="btnNext10" title="Forward 10 Frames">+10</button>
+                        <button class="btn" id="btnLast" title="Last Frame">&gt;|</button>
+                    </div>
+
+                    <!-- Progress Bar during tracking -->
+                    <div class="progress-container" id="progressContainer" style="flex:1; max-width:320px; margin:0 1rem;">
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" id="progressFill"></div>
+                        </div>
+                        <div class="progress-text">
+                            <span id="progressStatusText">Tracking...</span>
+                            <span id="progressPercentText">0%</span>
+                        </div>
+                    </div>
+
+                    <div class="transport-group">
+                        <button class="btn" id="btnTrackBackward" disabled title="Track Backward from Current Frame to Frame 0">◀ Backward</button>
+                        <button class="btn btn-success" id="btnTrackBoth" disabled title="Track Both Directions (Forward & Backward)" style="font-weight:700;">◀⚡▶ Track Both</button>
+                        <button class="btn" id="btnTrackForward" disabled title="Track Forward from Current Frame to End">Forward ▶</button>
+                        <button class="btn" id="btnExportModal" disabled style="background:#8957e5; border-color:#8957e5; color:white; font-weight:700; margin-left:0.5rem;">💾 Export Matte</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Export Modal -->
+    <div class="modal" id="exportModal">
+        <div class="modal-content">
+            <h3 style="font-size:1.1rem; font-weight:700;">Export Matte</h3>
+            <p style="font-size:0.82rem; color:#8b949e;">Choose your preferred matte format for DaVinci Resolve:</p>
+
+            <div style="display:flex; flex-direction:column; gap:0.4rem;">
+                <label style="font-size:0.8rem; color:#8b949e;">Format:</label>
+                <select id="exportFormatSelect" style="background:#121316; color:#e6edf3; border:1px solid #2e3240; padding:0.55rem; border-radius:6px; font-size:0.85rem;">
+                    <option value="transparent_mp4" selected>⭐ Transparent Video (.mp4) — [Exact Same as MOV, but with .mp4 Extension for DaVinci Resolve]</option>
+                    <option value="transparent_mov">⭐ Transparent Video (.mov) — [Apple ProRes 4444 Native Alpha for DaVinci Resolve]</option>
+                    <option value="side_by_side_mp4">🎞️ Side-by-Side Alpha (.mp4) — [RGB Left + Alpha Matte Right for DaVinci Resolve]</option>
+                    <option value="transparent_png">🖼️ Transparent PNG Sequence (.zip) — [Full 32-bit Alpha, Downloads as ZIP]</option>
+                    <option value="cutout_mp4">🎬 Cutout Video on Black (.mp4) — [Standard MP4 for all Players / Screen Blend]</option>
+                    <option value="single_png">📸 Current Frame Cutout (.png) — [Single Transparent PNG of Current Frame]</option>
+                    <option value="transparent_webm">🌐 Transparent Video (.webm) — [VP9 with Alpha, Web & Editor Friendly]</option>
+                    <option value="green_screen">🟩 Green Screen Cutout Video (.mp4) — [For Chroma Keyer]</option>
+                    <option value="matte_video">⬛ Black & White Matte Video (.mp4) — [For DaVinci Color Page External Matte]</option>
+                    <option value="png_sequence">📁 Black & White Matte PNG Sequence (.zip)</option>
+                </select>
+            </div>
+
+            <div id="exportResult"></div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.75rem;">
+                <button class="btn" id="btnOpenOutputsFolder" type="button" title="Open the outputs folder on your PC">📂 Open Folder</button>
+                <div style="display:flex; gap:0.5rem;">
+                    <button class="btn" id="btnCloseModal">Close</button>
+                    <button class="btn btn-primary" id="btnDoExport">Export</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/canvas.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
+
